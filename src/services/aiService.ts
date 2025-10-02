@@ -1,16 +1,17 @@
-import OpenAI from 'openai';
 import { UserProfile, WellnessTip, WellnessGoal, WELLNESS_ICONS } from '../types';
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent';
 
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.REACT_APP_OPENAI_API_KEY || '',
-  dangerouslyAllowBrowser: true // Note: In production, use a backend proxy
-});
 
 export class AIService {
   private static instance: AIService;
+  private apiKey: string;
+  private requestQueue: Promise<any>[] = [];
+  private lastRequestTime: number = 0;
+  private readonly MIN_REQUEST_INTERVAL = 1000; // 1 second between requests
 
-  private constructor() {}
+  private constructor() {
+    this.apiKey = process.env.REACT_APP_GEMINI_API_KEY || '';
+  }
 
   public static getInstance(): AIService {
     if (!AIService.instance) {
@@ -20,77 +21,154 @@ export class AIService {
   }
 
   /**
-   * Generate personalized wellness recommendations based on user profile
+   * Rate-limited API call wrapper
+   */
+  private async makeRateLimitedRequest<T>(requestFn: () => Promise<T>): Promise<T> {
+    const now = Date.now();
+    const timeSinceLastRequest = now - this.lastRequestTime;
+    
+    if (timeSinceLastRequest < this.MIN_REQUEST_INTERVAL) {
+      await new Promise(resolve => 
+        setTimeout(resolve, this.MIN_REQUEST_INTERVAL - timeSinceLastRequest)
+      );
+    }
+
+    this.lastRequestTime = Date.now();
+    return requestFn();
+  }
+
+  /**
+   * Make Gemini API call with retry logic
+   */
+  private async callGeminiAPI(prompt: string, retries = 3): Promise<string> {
+    if (!this.apiKey) {
+      throw new Error('Gemini API key not configured. Please add REACT_APP_GEMINI_API_KEY to your .env file');
+    }
+
+    for (let attempt = 0; attempt < retries; attempt++) {
+      try {
+        const response = await this.makeRateLimitedRequest(async () => {
+          const res = await fetch(`${GEMINI_API_URL}?key=${this.apiKey}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              contents: [{
+                parts: [{ text: prompt }]
+              }],
+              generationConfig: {
+                temperature: 0.7,
+                maxOutputTokens: 1024,
+                topP: 0.8,
+                topK: 40
+              }
+            })
+          });
+
+          if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}));
+            
+            if (res.status === 429) {
+              throw new Error('RATE_LIMIT');
+            }
+            
+            throw new Error(errorData.error?.message || `API Error: ${res.status}`);
+          }
+
+          return res.json();
+        });
+
+        const text = response.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!text) {
+          throw new Error('No response from Gemini AI');
+        }
+
+        return text;
+      } catch (error: any) {
+        const isLastAttempt = attempt === retries - 1;
+        
+        if (error.message === 'RATE_LIMIT' && !isLastAttempt) {
+          // Exponential backoff for rate limits
+          await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 2000));
+          continue;
+        }
+        
+        if (isLastAttempt) {
+          console.error('Gemini API Error:', error);
+          throw error;
+        }
+        
+        // Wait before retry
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
+
+    throw new Error('Failed after multiple retries');
+  }
+
+  /**
+   * Generate personalized wellness recommendations
    */
   async generateRecommendations(profile: UserProfile): Promise<WellnessTip[]> {
     try {
-      const prompt = this.buildRecommendationPrompt(profile);
-      
-      const completion = await openai.chat.completions.create({
-        model: "gpt-3.5-turbo",
-        messages: [
-          {
-            role: "system",
-            content: "You are a professional wellness coach and health expert. Generate personalized, actionable wellness tips based on the user's profile. Each tip should be practical, evidence-based, and achievable."
-          },
-          {
-            role: "user",
-            content: prompt
-          }
-        ],
-        temperature: 0.7,
-        max_tokens: 800,
-      });
+      const prompt = `You are a professional wellness coach. Generate exactly 5 personalized wellness tips for:
+- Age: ${profile.age}
+- Gender: ${profile.gender}
+- Wellness Goals: ${profile.goals.map(g => g.replace('-', ' ')).join(', ')}
 
-      const response = completion.choices[0]?.message?.content;
-      if (!response) throw new Error('No response from AI');
+For each tip, provide:
+1. A catchy, actionable title (max 8 words)
+2. A brief description (max 15 words)
+3. Which goal it addresses (must be one of: ${profile.goals.join(', ')})
 
+Format your response as a JSON array with this exact structure:
+[
+  {
+    "title": "Morning Hydration Boost",
+    "description": "Start your day with lemon water for energy",
+    "category": "energy-boost"
+  }
+]
+
+Make tips specific, evidence-based, and achievable. Ensure variety across physical, mental, dietary, and lifestyle changes.`;
+
+      const response = await this.callGeminiAPI(prompt);
       return this.parseRecommendations(response, profile.goals);
-    } catch (error) {
-      console.error('AI Service Error:', error);
-      // Fallback to mock data if API fails
-      return this.getFallbackRecommendations(profile);
+    } catch (error: any) {
+      console.error('Generate Recommendations Error:', error);
+      
+      if (error.message?.includes('API key')) {
+        throw new Error('Please configure your Gemini API key in the .env file');
+      }
+      
+      throw new Error('Unable to generate recommendations. Please try again.');
     }
   }
 
   /**
-   * Generate detailed explanation for a specific tip
+   * Generate detailed explanation for a tip
    */
   async generateDetailedExplanation(tip: WellnessTip, profile: UserProfile): Promise<WellnessTip> {
     try {
-      const prompt = `
-        Based on this wellness tip: "${tip.title}" - ${tip.shortDescription}
-        
-        For a ${profile.age}-year-old ${profile.gender} focused on ${profile.goals.join(', ')}:
-        
-        Please provide:
-        1. A detailed explanation (2-3 paragraphs)
-        2. Step-by-step implementation guide (5-7 steps)
-        3. Key benefits (3-5 points)
-        4. Time required and difficulty level
-        
-        Format as JSON with keys: longDescription, steps (array), benefits (array), timeRequired, difficulty
-      `;
+      const prompt = `As a wellness expert, provide detailed information about this wellness tip:
 
-      const completion = await openai.chat.completions.create({
-        model: "gpt-3.5-turbo",
-        messages: [
-          {
-            role: "system",
-            content: "You are a wellness expert. Provide detailed, actionable advice in JSON format."
-          },
-          {
-            role: "user",
-            content: prompt
-          }
-        ],
-        temperature: 0.6,
-        max_tokens: 600,
-      });
+Title: ${tip.title}
+Description: ${tip.shortDescription}
+User Profile: ${profile.age} year old ${profile.gender}, focused on ${profile.goals.join(', ')}
 
-      const response = completion.choices[0]?.message?.content;
-      if (!response) throw new Error('No response from AI');
+Provide a JSON response with:
+{
+  "longDescription": "2-3 paragraphs explaining the science and benefits",
+  "steps": ["step 1", "step 2", ...], // 5-7 actionable steps
+  "benefits": ["benefit 1", "benefit 2", ...], // 4-5 key benefits
+  "timeRequired": "X minutes per day",
+  "difficulty": "easy" // or "medium" or "hard"
+}
 
+Make it practical, evidence-based, and personalized for this user.`;
+
+      const response = await this.callGeminiAPI(prompt);
       const details = this.parseDetailedExplanation(response);
       return { ...tip, ...details };
     } catch (error) {
@@ -100,193 +178,140 @@ export class AIService {
   }
 
   /**
-   * Build recommendation prompt based on user profile
-   */
-  private buildRecommendationPrompt(profile: UserProfile): string {
-    return `
-      Generate 5 personalized wellness recommendations for:
-      - Age: ${profile.age}
-      - Gender: ${profile.gender}
-      - Goals: ${profile.goals.join(', ')}
-      ${profile.name ? `- Name: ${profile.name}` : ''}
-      
-      Format each tip as:
-      TITLE: [Short, catchy title]
-      DESCRIPTION: [One sentence description, max 20 words]
-      CATEGORY: [Primary goal it addresses from the user's goals]
-      
-      Make tips specific, actionable, and tailored to the user's profile.
-      Focus on variety - include different types of activities (physical, mental, dietary, lifestyle).
-    `;
-  }
-
-  /**
-   * Parse AI response into WellnessTip objects
+   * Parse recommendations from AI response
    */
   private parseRecommendations(response: string, goals: WellnessGoal[]): WellnessTip[] {
-    const tips: WellnessTip[] = [];
-    const lines = response.split('\n').filter(line => line.trim());
-    
-    let currentTip: Partial<WellnessTip> = {};
-    let tipIndex = 0;
-
-    for (const line of lines) {
-      if (line.includes('TITLE:')) {
-        if (currentTip.title) {
-          tips.push(this.createTipObject(currentTip, tipIndex++, goals));
-          currentTip = {};
-        }
-        currentTip.title = line.replace('TITLE:', '').trim();
-      } else if (line.includes('DESCRIPTION:')) {
-        currentTip.shortDescription = line.replace('DESCRIPTION:', '').trim();
-      } else if (line.includes('CATEGORY:')) {
-        const category = line.replace('CATEGORY:', '').trim().toLowerCase().replace(/ /g, '-');
-        currentTip.category = this.mapToWellnessGoal(category, goals);
+    try {
+      // Extract JSON from response (handle markdown code blocks)
+      const jsonMatch = response.match(/\[[\s\S]*\]/);
+      if (!jsonMatch) {
+        throw new Error('Invalid response format');
       }
-    }
 
-    if (currentTip.title) {
-      tips.push(this.createTipObject(currentTip, tipIndex, goals));
-    }
+      const parsed = JSON.parse(jsonMatch[0]);
+      
+      if (!Array.isArray(parsed) || parsed.length === 0) {
+        throw new Error('Invalid recommendations format');
+      }
 
-    // Ensure we have exactly 5 tips
-    while (tips.length < 5) {
-      tips.push(this.generateFallbackTip(tips.length, goals));
-    }
+      const tips: WellnessTip[] = parsed.slice(0, 5).map((item: any, index: number) => {
+        const category = this.mapToWellnessGoal(item.category, goals);
+        return {
+          id: `tip-${Date.now()}-${index}`,
+          title: item.title || `Wellness Tip ${index + 1}`,
+          shortDescription: item.description || 'Improve your wellness',
+          category: category,
+          icon: WELLNESS_ICONS[category],
+          createdAt: new Date(),
+          isSaved: false
+        };
+      });
 
-    return tips.slice(0, 5);
+      // Fill to 5 tips if needed
+      while (tips.length < 5) {
+        tips.push(this.generateFallbackTip(tips.length, goals));
+      }
+
+      return tips;
+    } catch (error) {
+      console.error('Parse error:', error);
+      // Return fallback tips if parsing fails
+      return Array.from({ length: 5 }, (_, i) => this.generateFallbackTip(i, goals));
+    }
   }
 
   /**
-   * Create a complete tip object
-   */
-  private createTipObject(
-    partial: Partial<WellnessTip>, 
-    index: number, 
-    goals: WellnessGoal[]
-  ): WellnessTip {
-    const category = partial.category || goals[index % goals.length];
-    return {
-      id: `tip-${Date.now()}-${index}`,
-      title: partial.title || `Wellness Tip ${index + 1}`,
-      shortDescription: partial.shortDescription || 'Improve your wellness with this tip',
-      category: category,
-      icon: WELLNESS_ICONS[category],
-      createdAt: new Date(),
-      isSaved: false
-    };
-  }
-
-  /**
-   * Map string to WellnessGoal enum
-   */
-  private mapToWellnessGoal(category: string, goals: WellnessGoal[]): WellnessGoal {
-    const goalMap: Record<string, WellnessGoal> = {
-      'weight-loss': 'weight-loss',
-      'muscle-gain': 'muscle-gain',
-      'better-sleep': 'better-sleep',
-      'stress-management': 'stress-management',
-      'healthy-eating': 'healthy-eating',
-      'mental-health': 'mental-health',
-      'energy-boost': 'energy-boost',
-      'flexibility': 'flexibility',
-      'cardiovascular': 'cardiovascular',
-      'mindfulness': 'mindfulness'
-    };
-
-    return goalMap[category] || goals[0];
-  }
-
-  /**
-   * Parse detailed explanation from AI response
+   * Parse detailed explanation
    */
   private parseDetailedExplanation(response: string): Partial<WellnessTip> {
     try {
-      // Try to parse as JSON
-      const json = JSON.parse(response);
+      const jsonMatch = response.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        throw new Error('Invalid response format');
+      }
+
+      const json = JSON.parse(jsonMatch[0]);
+      
       return {
-        longDescription: json.longDescription,
-        steps: json.steps,
-        benefits: json.benefits,
-        timeRequired: json.timeRequired,
-        difficulty: json.difficulty
+        longDescription: json.longDescription || '',
+        steps: Array.isArray(json.steps) ? json.steps : [],
+        benefits: Array.isArray(json.benefits) ? json.benefits : [],
+        timeRequired: json.timeRequired || '15-30 minutes',
+        difficulty: ['easy', 'medium', 'hard'].includes(json.difficulty) ? json.difficulty : 'easy'
       };
     } catch {
-      // Fallback parsing if not valid JSON
-      return {
-        longDescription: response,
-        steps: [
-          'Start with small, manageable changes',
-          'Track your progress daily',
-          'Be consistent with your practice',
-          'Adjust based on your comfort level',
-          'Celebrate small victories'
-        ],
-        benefits: [
-          'Improved overall wellness',
-          'Better physical and mental health',
-          'Increased energy and vitality'
-        ],
-        timeRequired: '15-30 minutes daily',
-        difficulty: 'easy'
-      };
+      return this.getDefaultDetails();
     }
   }
 
   /**
-   * Fallback recommendations when AI service fails
+   * Map category string to WellnessGoal
    */
-  private getFallbackRecommendations(profile: UserProfile): WellnessTip[] {
-    const fallbackTips = [
-      {
-        title: 'Morning Hydration Ritual',
-        shortDescription: 'Start your day with 16oz of water',
-        category: 'energy-boost' as WellnessGoal
-      },
-      {
-        title: '5-Minute Mindful Breathing',
-        shortDescription: 'Practice deep breathing exercises',
-        category: 'stress-management' as WellnessGoal
-      },
-      {
-        title: 'Evening Walk Challenge',
-        shortDescription: 'Take a 20-minute walk after dinner',
-        category: 'cardiovascular' as WellnessGoal
-      },
-      {
-        title: 'Protein-Rich Breakfast',
-        shortDescription: 'Include 20g protein in morning meal',
-        category: 'healthy-eating' as WellnessGoal
-      },
-      {
-        title: 'Digital Sunset Routine',
-        shortDescription: 'No screens 1 hour before bed',
-        category: 'better-sleep' as WellnessGoal
-      }
+  private mapToWellnessGoal(category: string, goals: WellnessGoal[]): WellnessGoal {
+    const normalized = category?.toLowerCase().replace(/[_\s]/g, '-');
+    const validGoals: WellnessGoal[] = [
+      'weight-loss', 'muscle-gain', 'better-sleep', 'stress-management',
+      'healthy-eating', 'mental-health', 'energy-boost', 'flexibility',
+      'cardiovascular', 'mindfulness'
     ];
 
-    return fallbackTips.map((tip, index) => ({
-      id: `fallback-${Date.now()}-${index}`,
-      ...tip,
-      icon: WELLNESS_ICONS[tip.category],
-      createdAt: new Date(),
-      isSaved: false
-    }));
+    if (validGoals.includes(normalized as WellnessGoal)) {
+      return normalized as WellnessGoal;
+    }
+
+    // Find best match from user's goals
+    return goals[0] || 'energy-boost';
   }
 
   /**
-   * Generate a single fallback tip
+   * Generate fallback tip
    */
   private generateFallbackTip(index: number, goals: WellnessGoal[]): WellnessTip {
-    const category = goals[index % goals.length];
+    const templates = [
+      { title: 'Morning Hydration Ritual', desc: 'Start your day with water', goal: 'energy-boost' },
+      { title: 'Mindful Breathing Practice', desc: 'Take 5 deep breaths hourly', goal: 'stress-management' },
+      { title: 'Evening Walk Routine', desc: 'Walk for 20 minutes after dinner', goal: 'cardiovascular' },
+      { title: 'Balanced Meal Planning', desc: 'Include protein in every meal', goal: 'healthy-eating' },
+      { title: 'Digital Detox Hour', desc: 'No screens before bedtime', goal: 'better-sleep' }
+    ];
+
+    const template = templates[index % templates.length];
+    const category = (goals.includes(template.goal as WellnessGoal) 
+      ? template.goal 
+      : goals[index % goals.length]) as WellnessGoal;
+
     return {
-      id: `generated-${Date.now()}-${index}`,
-      title: `Custom Wellness Tip ${index + 1}`,
-      shortDescription: 'Personalized recommendation for your goals',
+      id: `fallback-${Date.now()}-${index}`,
+      title: template.title,
+      shortDescription: template.desc,
       category: category,
       icon: WELLNESS_ICONS[category],
       createdAt: new Date(),
       isSaved: false
+    };
+  }
+
+  /**
+   * Get default details for fallback
+   */
+  private getDefaultDetails(): Partial<WellnessTip> {
+    return {
+      longDescription: 'This wellness practice can help improve your overall health and well-being. Regular implementation of this tip can lead to positive changes in your daily life.',
+      steps: [
+        'Start with small, manageable changes',
+        'Set a consistent daily schedule',
+        'Track your progress in a journal',
+        'Stay patient and persistent',
+        'Adjust based on your needs'
+      ],
+      benefits: [
+        'Improved overall wellness',
+        'Better energy levels',
+        'Enhanced mental clarity',
+        'Increased motivation'
+      ],
+      timeRequired: '15-20 minutes',
+      difficulty: 'easy'
     };
   }
 
@@ -296,23 +321,8 @@ export class AIService {
   private getFallbackDetailedExplanation(tip: WellnessTip): WellnessTip {
     return {
       ...tip,
-      longDescription: `${tip.title} is an excellent way to improve your wellness. This practice has been shown to have numerous benefits for both physical and mental health. By incorporating this into your daily routine, you can expect to see gradual improvements in your overall well-being.`,
-      steps: [
-        'Begin with a clear intention and commitment',
-        'Start small and build gradually',
-        'Track your progress in a journal',
-        'Find an accountability partner if possible',
-        'Adjust the practice to fit your lifestyle',
-        'Be patient and consistent with your efforts'
-      ],
-      benefits: [
-        'Enhanced overall wellness and vitality',
-        'Improved physical and mental resilience',
-        'Better stress management capabilities',
-        'Increased energy throughout the day'
-      ],
-      timeRequired: '15-30 minutes',
-      difficulty: 'easy'
+      ...this.getDefaultDetails(),
+      longDescription: `${tip.title} is a powerful wellness practice that can transform your daily routine. This approach combines evidence-based strategies with practical implementation to help you achieve your health goals. By consistently applying this technique, you'll notice gradual improvements in both your physical and mental well-being.`
     };
   }
 }
