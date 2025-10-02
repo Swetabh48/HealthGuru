@@ -2,6 +2,7 @@ export interface UserProfile {
   age: number;
   gender: 'male' | 'female' | 'other' | 'prefer-not-to-say';
   goals: WellnessGoal[];
+  goalDescriptions?: Record<WellnessGoal, string>; // NEW: User's specific descriptions for each goal
   name?: string;
 }
 
@@ -72,4 +73,17 @@ export const GOAL_LABELS: Record<WellnessGoal, string> = {
   'flexibility': 'Flexibility',
   'cardiovascular': 'Cardiovascular Health',
   'mindfulness': 'Mindfulness'
+};
+
+export const GOAL_DESCRIPTIONS: Record<WellnessGoal, string> = {
+  'weight-loss': 'Describe your weight loss goals and target',
+  'muscle-gain': 'What muscle building results are you aiming for?',
+  'better-sleep': 'Describe your sleep challenges and goals',
+  'stress-management': 'What stress areas do you want to address?',
+  'healthy-eating': 'Describe your dietary goals and preferences',
+  'mental-health': 'What aspects of mental health do you want to improve?',
+  'energy-boost': 'When and how do you want to increase your energy?',
+  'flexibility': 'What flexibility goals do you have?',
+  'cardiovascular': 'Describe your cardiovascular fitness goals',
+  'mindfulness': 'What mindfulness practices interest you?'
 };
