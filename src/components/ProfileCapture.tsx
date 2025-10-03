@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Calendar, Target, ChevronRight, Sparkles, Check, Info } from 'lucide-react';
+import { User, Calendar, Target, ChevronRight, Sparkles, Check, Info, FileText } from 'lucide-react';
 import { useWellness } from '../contexts/WellnessContext';
-import { WellnessGoal, GOAL_LABELS, WELLNESS_ICONS } from '../types';
+import { WellnessGoal, GOAL_LABELS, WELLNESS_ICONS} from '../types';
 
 const ProfileCapture: React.FC = () => {
   const { setUserProfile, isLoading, error } = useWellness();
@@ -11,6 +11,7 @@ const ProfileCapture: React.FC = () => {
   const [age, setAge] = useState('');
   const [gender, setGender] = useState<'male' | 'female' | 'other' | 'prefer-not-to-say'>('prefer-not-to-say');
   const [selectedGoals, setSelectedGoals] = useState<WellnessGoal[]>([]);
+  const [goalDescriptions, setGoalDescriptions] = useState<Record<string, string>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
 
@@ -23,6 +24,10 @@ const ProfileCapture: React.FC = () => {
   const toggleGoal = (goal: WellnessGoal) => {
     setSelectedGoals(prev => {
       if (prev.includes(goal)) {
+        // Remove goal and its description
+        const newDescriptions = { ...goalDescriptions };
+        delete newDescriptions[goal];
+        setGoalDescriptions(newDescriptions);
         return prev.filter(g => g !== goal);
       }
       if (prev.length >= 3) {
@@ -33,6 +38,13 @@ const ProfileCapture: React.FC = () => {
       setErrors(prev => ({ ...prev, goals: '' }));
       return [...prev, goal];
     });
+  };
+
+  const updateGoalDescription = (goal: WellnessGoal, description: string) => {
+    setGoalDescriptions(prev => ({
+      ...prev,
+      [goal]: description
+    }));
   };
 
   const validateStep = (currentStep: number): boolean => {
@@ -50,6 +62,16 @@ const ProfileCapture: React.FC = () => {
         newErrors.goals = 'Please select at least one wellness goal';
       }
     }
+
+    if (currentStep === 4) {
+      // Check if all selected goals have descriptions
+      const missingDescriptions = selectedGoals.filter(
+        goal => !goalDescriptions[goal] || goalDescriptions[goal].trim().length < 10
+      );
+      if (missingDescriptions.length > 0) {
+        newErrors.descriptions = 'Please provide detailed descriptions (at least 10 characters) for all selected goals';
+      }
+    }
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -57,7 +79,7 @@ const ProfileCapture: React.FC = () => {
 
   const nextStep = () => {
     if (validateStep(step)) {
-      setStep(prev => Math.min(prev + 1, 3));
+      setStep(prev => Math.min(prev + 1, 4));
     }
   };
 
@@ -69,20 +91,21 @@ const ProfileCapture: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!validateStep(3)) return;
+    if (!validateStep(4)) return;
     
     await setUserProfile({
       name: name || undefined,
       age: parseInt(age),
       gender,
       goals: selectedGoals,
+      goalDescriptions
     });
   };
 
-  const progressPercentage = (step / 3) * 100;
+  const progressPercentage = (step / 4) * 100;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-purple-900/20 dark:to-indigo-900/20 relative overflow-hidden transition-colors duration-500">
       {/* Animated Background Elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <motion.div
@@ -92,7 +115,7 @@ const ProfileCapture: React.FC = () => {
             opacity: [0.1, 0.2, 0.1],
           }}
           transition={{ duration: 8, repeat: Infinity }}
-          className="absolute -top-20 -right-20 w-96 h-96 bg-purple-400 rounded-full blur-3xl"
+          className="absolute -top-20 -right-20 w-96 h-96 bg-purple-400 dark:bg-purple-600 rounded-full blur-3xl"
         />
         <motion.div
           animate={{
@@ -101,7 +124,7 @@ const ProfileCapture: React.FC = () => {
             opacity: [0.1, 0.15, 0.1],
           }}
           transition={{ duration: 10, repeat: Infinity }}
-          className="absolute -bottom-20 -left-20 w-96 h-96 bg-blue-400 rounded-full blur-3xl"
+          className="absolute -bottom-20 -left-20 w-96 h-96 bg-blue-400 dark:bg-blue-600 rounded-full blur-3xl"
         />
       </div>
       
@@ -125,7 +148,7 @@ const ProfileCapture: React.FC = () => {
           <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-purple-600 via-blue-600 to-pink-600 bg-clip-text text-transparent mb-3">
             Your Wellness Journey Starts Here
           </h1>
-          <p className="text-lg text-gray-600 max-w-xl mx-auto">
+          <p className="text-lg text-gray-600 dark:text-gray-300 max-w-xl mx-auto">
             Let's create a personalized health plan tailored just for you
           </p>
         </motion.div>
@@ -137,10 +160,10 @@ const ProfileCapture: React.FC = () => {
           className="mb-8"
         >
           <div className="flex justify-between items-center mb-2">
-            <span className="text-sm font-medium text-gray-600">Step {step} of 3</span>
-            <span className="text-sm font-medium text-purple-600">{Math.round(progressPercentage)}%</span>
+            <span className="text-sm font-medium text-gray-600 dark:text-gray-300">Step {step} of 4</span>
+            <span className="text-sm font-medium text-purple-600 dark:text-purple-400">{Math.round(progressPercentage)}%</span>
           </div>
-          <div className="h-3 bg-white/80 rounded-full overflow-hidden shadow-inner">
+          <div className="h-3 bg-white/80 dark:bg-gray-700 rounded-full overflow-hidden shadow-inner">
             <motion.div
               initial={{ width: 0 }}
               animate={{ width: `${progressPercentage}%` }}
@@ -157,11 +180,11 @@ const ProfileCapture: React.FC = () => {
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-lg shadow-md"
+              className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 rounded-lg shadow-md"
             >
               <div className="flex items-center">
                 <Info className="w-5 h-5 text-red-500 mr-3 flex-shrink-0" />
-                <p className="text-red-700 font-medium">{error}</p>
+                <p className="text-red-700 dark:text-red-400 font-medium">{error}</p>
               </div>
             </motion.div>
           )}
@@ -171,11 +194,11 @@ const ProfileCapture: React.FC = () => {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl p-8 md:p-12 border border-white/20"
+          className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-3xl shadow-2xl p-8 md:p-12 border border-white/20 dark:border-gray-700/50 transition-colors duration-300"
         >
           <form onSubmit={handleSubmit}>
             <AnimatePresence mode="wait">
-              {/* Step 1: Name (Optional) */}
+              {/* Step 1: Name */}
               {step === 1 && (
                 <motion.div
                   key="step1"
@@ -185,20 +208,20 @@ const ProfileCapture: React.FC = () => {
                   transition={{ duration: 0.3 }}
                 >
                   <div className="mb-8">
-                    <label className="flex items-center text-lg font-semibold text-gray-800 mb-4">
+                    <label className="flex items-center text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">
                       <User className="w-6 h-6 mr-3 text-purple-500" />
                       What should we call you?
-                      <span className="ml-2 text-sm font-normal text-gray-500">(Optional)</span>
+                      <span className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">(Optional)</span>
                     </label>
                     <input
                       type="text"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       placeholder="Enter your name"
-                      className="w-full px-6 py-4 text-lg border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-purple-200 focus:border-purple-400 transition-all outline-none"
+                      className="w-full px-6 py-4 text-lg border-2 border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl focus:ring-4 focus:ring-purple-200 dark:focus:ring-purple-500/30 focus:border-purple-400 transition-all outline-none"
                       autoFocus
                     />
-                    <p className="mt-3 text-sm text-gray-500 flex items-center">
+                    <p className="mt-3 text-sm text-gray-500 dark:text-gray-400 flex items-center">
                       <Info className="w-4 h-4 mr-2" />
                       We'll use this to personalize your experience
                     </p>
@@ -216,7 +239,7 @@ const ProfileCapture: React.FC = () => {
                   transition={{ duration: 0.3 }}
                 >
                   <div className="mb-8">
-                    <label className="flex items-center text-lg font-semibold text-gray-800 mb-4">
+                    <label className="flex items-center text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">
                       <Calendar className="w-6 h-6 mr-3 text-purple-500" />
                       How old are you?
                       <span className="ml-2 text-red-500">*</span>
@@ -233,10 +256,10 @@ const ProfileCapture: React.FC = () => {
                       placeholder="Enter your age"
                       min="13"
                       max="120"
-                      className={`w-full px-6 py-4 text-lg border-2 rounded-xl focus:ring-4 focus:ring-purple-200 transition-all outline-none ${
+                      className={`w-full px-6 py-4 text-lg border-2 rounded-xl dark:bg-gray-700 dark:text-white focus:ring-4 focus:ring-purple-200 dark:focus:ring-purple-500/30 transition-all outline-none ${
                         errors.age && touched.age
                           ? 'border-red-300 focus:border-red-400'
-                          : 'border-gray-200 focus:border-purple-400'
+                          : 'border-gray-200 dark:border-gray-600 focus:border-purple-400'
                       }`}
                       autoFocus
                     />
@@ -246,7 +269,7 @@ const ProfileCapture: React.FC = () => {
                           initial={{ opacity: 0, height: 0 }}
                           animate={{ opacity: 1, height: 'auto' }}
                           exit={{ opacity: 0, height: 0 }}
-                          className="mt-2 text-sm text-red-600 flex items-center"
+                          className="mt-2 text-sm text-red-600 dark:text-red-400 flex items-center"
                         >
                           <Info className="w-4 h-4 mr-1" />
                           {errors.age}
@@ -256,7 +279,7 @@ const ProfileCapture: React.FC = () => {
                   </div>
 
                   <div className="mb-8">
-                    <label className="text-lg font-semibold text-gray-800 mb-4 block">
+                    <label className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4 block">
                       Gender
                       <span className="ml-2 text-red-500">*</span>
                     </label>
@@ -271,7 +294,7 @@ const ProfileCapture: React.FC = () => {
                           className={`relative px-6 py-4 rounded-xl border-2 font-medium transition-all ${
                             gender === option
                               ? 'bg-gradient-to-r from-purple-500 to-blue-500 text-white border-transparent shadow-lg'
-                              : 'bg-white text-gray-700 border-gray-200 hover:border-purple-300 hover:shadow-md'
+                              : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-600 hover:border-purple-300 hover:shadow-md'
                           }`}
                         >
                           {gender === option && (
@@ -301,31 +324,31 @@ const ProfileCapture: React.FC = () => {
                   transition={{ duration: 0.3 }}
                 >
                   <div className="mb-8">
-                    <label className="flex items-center text-lg font-semibold text-gray-800 mb-2">
+                    <label className="flex items-center text-lg font-semibold text-gray-800 dark:text-gray-100 mb-2">
                       <Target className="w-6 h-6 mr-3 text-purple-500" />
                       What are your wellness goals?
                       <span className="ml-2 text-red-500">*</span>
                     </label>
-                    <p className="text-sm text-gray-600 mb-6 flex items-center">
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-6 flex items-center">
                       <Info className="w-4 h-4 mr-2 flex-shrink-0" />
                       Select up to 3 goals that matter most to you
                     </p>
                     
                     {/* Selected Count */}
                     <div className="mb-4 flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         {selectedGoals.map(goal => (
                           <motion.span
                             key={goal}
                             initial={{ scale: 0 }}
                             animate={{ scale: 1 }}
-                            className="px-3 py-1 bg-gradient-to-r from-purple-100 to-blue-100 text-purple-700 text-xs rounded-full font-medium"
+                            className="px-3 py-1 bg-gradient-to-r from-purple-100 to-blue-100 dark:from-purple-900/50 dark:to-blue-900/50 text-purple-700 dark:text-purple-300 text-xs rounded-full font-medium"
                           >
                             {WELLNESS_ICONS[goal]} {GOAL_LABELS[goal]}
                           </motion.span>
                         ))}
                       </div>
-                      <span className="text-sm font-medium text-gray-600">
+                      <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
                         {selectedGoals.length}/3 selected
                       </span>
                     </div>
@@ -347,8 +370,8 @@ const ProfileCapture: React.FC = () => {
                               isSelected
                                 ? 'bg-gradient-to-br from-purple-500 to-blue-500 text-white border-transparent shadow-lg'
                                 : isDisabled
-                                ? 'bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed opacity-50'
-                                : 'bg-white text-gray-700 border-gray-200 hover:border-purple-300 hover:shadow-md'
+                                ? 'bg-gray-50 dark:bg-gray-700/50 text-gray-400 dark:text-gray-500 border-gray-200 dark:border-gray-600 cursor-not-allowed opacity-50'
+                                : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-600 hover:border-purple-300 hover:shadow-md'
                             }`}
                           >
                             {isSelected && (
@@ -377,7 +400,7 @@ const ProfileCapture: React.FC = () => {
                           initial={{ opacity: 0, height: 0 }}
                           animate={{ opacity: 1, height: 'auto' }}
                           exit={{ opacity: 0, height: 0 }}
-                          className="mt-3 text-sm text-red-600 flex items-center"
+                          className="mt-3 text-sm text-red-600 dark:text-red-400 flex items-center"
                         >
                           <Info className="w-4 h-4 mr-1" />
                           {errors.goals}
@@ -387,17 +410,95 @@ const ProfileCapture: React.FC = () => {
                   </div>
                 </motion.div>
               )}
+
+              {/* Step 4: Goal Descriptions */}
+              {step === 4 && (
+                <motion.div
+                  key="step4"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <div className="mb-8">
+                    <label className="flex items-center text-lg font-semibold text-gray-800 dark:text-gray-100 mb-2">
+                      <FileText className="w-6 h-6 mr-3 text-purple-500" />
+                      Tell us more about your goals
+                      <span className="ml-2 text-red-500">*</span>
+                    </label>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-6 flex items-center">
+                      <Info className="w-4 h-4 mr-2 flex-shrink-0" />
+                      Help us create better recommendations by describing what you want to achieve
+                    </p>
+
+                    <div className="space-y-6">
+                      {selectedGoals.map((goal, index) => (
+                        <motion.div
+                          key={goal}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: index * 0.1 }}
+                          className="relative"
+                        >
+                          <div className="flex items-center mb-3">
+                            <span className="text-2xl mr-3">{WELLNESS_ICONS[goal]}</span>
+                            <h3 className="font-semibold text-gray-800 dark:text-gray-100">
+                              {GOAL_LABELS[goal]}
+                            </h3>
+                          </div>
+                          <textarea
+                            value={goalDescriptions[goal] || ''}
+                            onChange={(e) => updateGoalDescription(goal, e.target.value)}
+                            placeholder={`Example: I want to ${goal === 'weight-loss' ? 'lose 10kg in 3 months through healthy eating and exercise' : goal === 'better-sleep' ? 'improve my sleep quality and wake up feeling refreshed' : 'achieve better overall wellness'}`}
+                            rows={3}
+                            className="w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl focus:ring-4 focus:ring-purple-200 dark:focus:ring-purple-500/30 focus:border-purple-400 transition-all outline-none resize-none"
+                          />
+                          <div className="mt-1 flex justify-between items-center text-xs">
+                            <span className="text-gray-500 dark:text-gray-400">
+                              {(goalDescriptions[goal] || '').length} / 200 characters
+                            </span>
+                            {goalDescriptions[goal] && goalDescriptions[goal].length >= 10 && (
+                              <motion.span
+                                initial={{ scale: 0 }}
+                                animate={{ scale: 1 }}
+                                className="text-green-600 dark:text-green-400 flex items-center"
+                              >
+                                <Check className="w-3 h-3 mr-1" />
+                                Complete
+                              </motion.span>
+                            )}
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+
+                    <AnimatePresence>
+                      {errors.descriptions && (
+                        <motion.p
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className="mt-3 text-sm text-red-600 dark:text-red-400 flex items-center"
+                        >
+                          <Info className="w-4 h-4 mr-1" />
+                          {errors.descriptions}
+                        </motion.p>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                </motion.div>
+              )}
             </AnimatePresence>
 
             {/* Navigation Buttons */}
-            <div className="flex items-center justify-between mt-8 pt-6 border-t border-gray-200">
+            <div className="flex items-center justify-between mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
               {step > 1 ? (
                 <motion.button
                   type="button"
                   onClick={prevStep}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  className="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 transition-all"
+                  className="px-6 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-xl font-semibold hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"
                 >
                   ← Previous
                 </motion.button>
@@ -405,7 +506,7 @@ const ProfileCapture: React.FC = () => {
                 <div />
               )}
 
-              {step < 3 ? (
+              {step < 4 ? (
                 <motion.button
                   type="button"
                   onClick={nextStep}
@@ -456,11 +557,11 @@ const ProfileCapture: React.FC = () => {
             <motion.div
               key={index}
               whileHover={{ y: -5 }}
-              className="bg-white/70 backdrop-blur-sm rounded-2xl p-5 text-center shadow-md hover:shadow-lg transition-all"
+              className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-2xl p-5 text-center shadow-md hover:shadow-lg transition-all"
             >
               <div className="text-3xl mb-2">{item.icon}</div>
-              <h3 className="font-bold text-gray-800 mb-1">{item.title}</h3>
-              <p className="text-sm text-gray-600">{item.desc}</p>
+              <h3 className="font-bold text-gray-800 dark:text-gray-100 mb-1">{item.title}</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">{item.desc}</p>
             </motion.div>
           ))}
         </motion.div>

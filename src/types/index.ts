@@ -2,7 +2,7 @@ export interface UserProfile {
   age: number;
   gender: 'male' | 'female' | 'other' | 'prefer-not-to-say';
   goals: WellnessGoal[];
-  goalDescriptions?: Record<WellnessGoal, string>; // NEW: User's specific descriptions for each goal
+  goalDescriptions?: Record<string, string>;
   name?: string;
 }
 
@@ -31,10 +31,11 @@ export interface WellnessTip {
   difficulty?: 'easy' | 'medium' | 'hard';
   createdAt: Date;
   isSaved?: boolean;
+  completedSteps?: number[];
 }
 
 export interface AppState {
-  currentScreen: 'profile' | 'board' | 'detail' | 'saved';
+  currentScreen: 'profile' | 'board' | 'detail' | 'saved' | 'progress';
   userProfile: UserProfile | null;
   recommendations: WellnessTip[];
   savedTips: WellnessTip[];

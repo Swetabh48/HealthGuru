@@ -59,7 +59,7 @@ export class AIService {
               }],
               generationConfig: {
                 temperature: 0.9,
-                maxOutputTokens: 2048,
+                maxOutputTokens:4096,
                 topP: 0.95,
                 topK: 40
               }
@@ -131,7 +131,7 @@ export class AIService {
         return `${index + 1}. ${goal.replace('-', ' ')}: ${description}`;
       }).join('\n');
 
-      const prompt = `You are a professional wellness coach. Generate exactly 6 personalized, actionable wellness tips.
+      const prompt = `You are a professional health,fitness and lifestyle expert. Generate exactly 6 personalized, actionable wellness tips.
 
 USER PROFILE:
 - Age: ${profile.age}
@@ -197,7 +197,7 @@ Generate the JSON array now:`;
   async generateDetailedExplanation(tip: WellnessTip, profile: UserProfile): Promise<WellnessTip> {
   try {
     // Updated prompt to force compact JSON and short outputs per field
-    const prompt = `You are a wellness expert. Provide detailed information about this wellness tip in strict JSON only.
+    const prompt = `You are a fitness expert with all the knowledge that a fitness trainer and doctor have. Provide detailed information about this wellness tip in strict JSON only.
 
 TIP: ${tip.title}
 DESCRIPTION: ${tip.shortDescription}
@@ -240,61 +240,93 @@ Generate the JSON now:`;
   /**
    * Parse recommendations from AI response with improved error handling
    */
-  private parseRecommendations(response: string, goals: WellnessGoal[]): WellnessTip[] {
-    try {
-      // Remove markdown code blocks if present
-      let cleanedResponse = response.trim();
-      cleanedResponse = cleanedResponse.replace(/```json\n?/g, '');
-      cleanedResponse = cleanedResponse.replace(/```\n?/g, '');
-      cleanedResponse = cleanedResponse.trim();
+ /**
+ * Parse recommendations from AI response with defensive JSON handling
+ */
+private parseRecommendations(response: string, goals: WellnessGoal[]): WellnessTip[] {
+  try {
+    // Step 1: Clean up raw response
+    let cleanedResponse = response.trim();
+    cleanedResponse = cleanedResponse.replace(/```json\n?|```/g, '').trim();
 
-      // Extract JSON array
-      const jsonMatch = cleanedResponse.match(/\[\s*{[\s\S]*}\s*\]/);
-      if (!jsonMatch) {
-        console.error('No JSON array found in response:', cleanedResponse);
-        throw new Error('Invalid response format');
-      }
-
-      const parsed = JSON.parse(jsonMatch[0]);
-      
-      if (!Array.isArray(parsed) || parsed.length === 0) {
-        console.error('Parsed data is not a valid array:', parsed);
-        throw new Error('Invalid recommendations format');
-      }
-
-      console.log(`Successfully parsed ${parsed.length} tips`);
-
-      const tips: WellnessTip[] = parsed.slice(0, 6).map((item: any, index: number) => {
-        const category = this.mapToWellnessGoal(item.category, goals);
-        return {
-          id: `tip-${Date.now()}-${index}`,
-          title: item.title || `Wellness Tip ${index + 1}`,
-          shortDescription: item.description || 'Improve your wellness journey',
-          category: category,
-          icon: WELLNESS_ICONS[category],
-          createdAt: new Date(),
-          isSaved: false
-        };
-      });
-
-      // Ensure we have at least 5 tips
-      while (tips.length < 5) {
-        tips.push(this.generateFallbackTip(tips.length, goals));
-      }
-
-      return tips;
-
-    } catch (error) {
-      console.error('Parse error:', error);
-      console.log('Falling back to generated tips');
+    // Step 2: Extract only the JSON array portion
+    const arrayMatch = cleanedResponse.match(/\[[\s\S]*\]/);
+    if (!arrayMatch) {
+      console.error("No JSON array found in response:", cleanedResponse);
       return this.generateFallbackTips(goals);
     }
+
+    let parsed: any;
+
+    // Step 3: Try strict parse first
+    try {
+      parsed = JSON.parse(arrayMatch[0]);
+    } catch (err) {
+      console.warn("Strict JSON parse failed, trying relaxed parse:", err);
+
+      // Remove trailing commas before } or ]
+      const relaxed = arrayMatch[0]
+        .replace(/,\s*}/g, '}')
+        .replace(/,\s*]/g, ']');
+
+      try {
+        parsed = JSON.parse(relaxed);
+      } catch (err2) {
+        console.error("Relaxed JSON parse failed:", err2);
+        return this.generateFallbackTips(goals);
+      }
+    }
+
+    // Step 4: Validate array
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      console.error("Parsed data is not a valid array:", parsed);
+      return this.generateFallbackTips(goals);
+    }
+
+    // Step 5: Drop incomplete objects (e.g. cut-off JSON)
+    parsed = parsed.filter(
+      (item: any) => item?.title && item?.description && item?.category
+    );
+
+    if (parsed.length === 0) {
+      console.error("All parsed tips were invalid:", parsed);
+      return this.generateFallbackTips(goals);
+    }
+
+    console.log(`Successfully parsed ${parsed.length} tips`);
+
+    // Step 6: Map to WellnessTip objects
+    const tips: WellnessTip[] = parsed.slice(0, 6).map((item: any, index: number) => {
+      const category = this.mapToWellnessGoal(item.category, goals);
+      return {
+        id: `tip-${Date.now()}-${index}`,
+        title: item.title || `Wellness Tip ${index + 1}`,
+        shortDescription: item.description || 'Improve your wellness journey',
+        category: category,
+        icon: WELLNESS_ICONS[category],
+        createdAt: new Date(),
+        isSaved: false
+      };
+    });
+
+    // Ensure at least 5 tips
+    while (tips.length < 5) {
+      tips.push(this.generateFallbackTip(tips.length, goals));
+    }
+
+    return tips;
+
+  } catch (error) {
+    console.error("Parse error:", error, "\nRaw response:", response);
+    return this.generateFallbackTips(goals);
   }
+}
+
 
   /**
    * Parse detailed explanation with better error handling
    */
-  private parseDetailedExplanation(response: string): Partial<WellnessTip> {
+private parseDetailedExplanation(response: string): Partial<WellnessTip> {
   try {
     let cleaned = response.trim();
 
@@ -302,19 +334,26 @@ Generate the JSON now:`;
     cleaned = cleaned.replace(/```json\n?|```/g, '').trim();
 
     // Attempt to extract JSON between first { and last }
-    const firstBrace = cleaned.indexOf('{');
-    const lastBrace = cleaned.lastIndexOf('}');
+    // const firstBrace = cleaned.indexOf('{');
+    // const lastBrace = cleaned.lastIndexOf('}');
     
-    if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) {
-      throw new Error('No JSON braces found');
-    }
+    // if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) {
+    //   throw new Error('No JSON braces found');
+    // }
 
-    const jsonString = cleaned.slice(firstBrace, lastBrace + 1);
+    // let jsonString = cleaned.slice(firstBrace, lastBrace + 1);
+
+    // // 🔧 Auto-fix common Gemini mistakes:
+    // // 1. Missing comma before a new key after array/object
+    // jsonString = jsonString.replace(/]\s*"\s*([a-zA-Z0-9_]+)"\s*:/g, '],"$1":');
+    // jsonString = jsonString.replace(/}\s*"\s*([a-zA-Z0-9_]+)"\s*:/g, '},"$1":');
 
     let parsed: any = {};
     try {
-      parsed = JSON.parse(jsonString);
-    } catch {
+      parsed = JSON.parse(cleaned);
+    } catch (err) {
+      console.warn("Strict JSON parse failed, falling back:", err);
+
       // Regex fallback for partial JSON
       const extractField = (key: string) => {
         const match = cleaned.match(new RegExp(`"${key}"\\s*:\\s*(\\[[^\\]]*\\]|"[^"]*")`, 's'));
@@ -341,6 +380,7 @@ Generate the JSON now:`;
     return this.getDefaultDetails();
   }
 }
+
 
 
   /**

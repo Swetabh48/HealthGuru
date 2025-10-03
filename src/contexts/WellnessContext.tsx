@@ -3,27 +3,44 @@ import { UserProfile, WellnessTip, AppState } from '../types';
 import aiService from '../services/aiService';
 import storageService from '../services/storageService';
 
-interface WellnessContextType extends AppState {
+interface ProgressEntry {
+  date: Date;
+  tipId: string;
+  completed: boolean;
+  notes?: string;
+}
+
+interface ExtendedAppState extends AppState {
+  progress: ProgressEntry[];
+  darkMode: boolean;
+}
+
+interface WellnessContextType extends ExtendedAppState {
   setUserProfile: (profile: UserProfile) => Promise<void>;
   generateRecommendations: () => Promise<void>;
   selectTip: (tip: WellnessTip) => Promise<void>;
   toggleSaveTip: (tip: WellnessTip) => void;
-  navigateTo: (screen: AppState['currentScreen']) => void;
+  navigateTo: (screen: ExtendedAppState['currentScreen']) => void;
   clearSession: () => void;
   regenerateRecommendations: () => Promise<void>;
+  toggleDarkMode: () => void;
+  addProgress: (tipId: string, completed: boolean, notes?: string) => void;
+  toggleStepCompletion: (tipId: string, stepIndex: number) => void;
 }
 
 const WellnessContext = createContext<WellnessContextType | undefined>(undefined);
 
 export const WellnessProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [state, setState] = useState<AppState>({
-    currentScreen: 'profile',
+  const [state, setState] = useState<ExtendedAppState>({
+    currentScreen: 'profile' as any,
     userProfile: null,
     recommendations: [],
     savedTips: [],
     selectedTip: null,
+    progress: [],
     isLoading: false,
     error: null,
+    darkMode: false,
   });
 
   // Load saved data on mount
@@ -31,15 +48,29 @@ export const WellnessProvider: React.FC<{ children: ReactNode }> = ({ children }
     const savedProfile = storageService.getUserProfile();
     const savedTips = storageService.getSavedTips();
     const recommendations = storageService.getRecommendations();
+    const savedDarkMode = localStorage.getItem('wellness_dark_mode') === 'true';
+    const savedProgress = JSON.parse(localStorage.getItem('wellness_progress') || '[]');
 
     setState(prev => ({
       ...prev,
       userProfile: savedProfile,
       savedTips: savedTips,
       recommendations: recommendations,
-      currentScreen: savedProfile ? 'board' : 'profile',
+      progress: savedProgress.map((p: any) => ({ ...p, date: new Date(p.date) })),
+      currentScreen: savedProfile ? ('board' as any) : ('profile' as any),
+      darkMode: savedDarkMode,
     }));
   }, []);
+
+  // Save dark mode preference
+  useEffect(() => {
+    localStorage.setItem('wellness_dark_mode', state.darkMode.toString());
+  }, [state.darkMode]);
+
+  // Save progress
+  useEffect(() => {
+    localStorage.setItem('wellness_progress', JSON.stringify(state.progress));
+  }, [state.progress]);
 
   const setUserProfile = async (profile: UserProfile) => {
     setState(prev => ({ ...prev, isLoading: true, error: null }));
@@ -82,7 +113,7 @@ export const WellnessProvider: React.FC<{ children: ReactNode }> = ({ children }
       setState(prev => ({
         ...prev,
         recommendations: markedTips,
-        currentScreen: 'board',
+        currentScreen: 'board' as any,
         isLoading: false,
       }));
     } catch (error) {
@@ -116,14 +147,14 @@ export const WellnessProvider: React.FC<{ children: ReactNode }> = ({ children }
           ...prev,
           selectedTip: detailedTip,
           recommendations: updatedRecommendations,
-          currentScreen: 'detail',
+          currentScreen: 'detail' as any,
           isLoading: false,
         }));
       } else {
         setState(prev => ({
           ...prev,
           selectedTip: tip,
-          currentScreen: 'detail',
+          currentScreen: 'detail' as any,
           isLoading: false,
         }));
       }
@@ -159,20 +190,78 @@ export const WellnessProvider: React.FC<{ children: ReactNode }> = ({ children }
     }));
   };
 
-  const navigateTo = (screen: AppState['currentScreen']) => {
+  const navigateTo = (screen: ExtendedAppState['currentScreen']) => {
     setState(prev => ({ ...prev, currentScreen: screen }));
   };
 
   const clearSession = () => {
     storageService.clearSession();
-    setState({
-      currentScreen: 'profile',
+    setState(prev => ({
+      ...prev,
+      currentScreen: 'profile' as any,
       userProfile: null,
       recommendations: [],
       savedTips: storageService.getSavedTips(), // Keep saved tips
       selectedTip: null,
       isLoading: false,
       error: null,
+    }));
+  };
+
+  const toggleDarkMode = () => {
+    setState(prev => ({ ...prev, darkMode: !prev.darkMode }));
+  };
+
+  const addProgress = (tipId: string, completed: boolean, notes?: string) => {
+    const newEntry: ProgressEntry = {
+      date: new Date(),
+      tipId,
+      completed,
+      notes,
+    };
+    setState(prev => ({
+      ...prev,
+      progress: [...prev.progress, newEntry],
+    }));
+  };
+
+  const toggleStepCompletion = (tipId: string, stepIndex: number) => {
+    setState(prev => {
+      const updatedRecommendations = prev.recommendations.map(tip => {
+        if (tip.id === tipId) {
+          const completedSteps = tip.completedSteps || [];
+          const newCompletedSteps = completedSteps.includes(stepIndex)
+            ? completedSteps.filter(i => i !== stepIndex)
+            : [...completedSteps, stepIndex];
+          return { ...tip, completedSteps: newCompletedSteps };
+        }
+        return tip;
+      });
+
+      const updatedSavedTips = prev.savedTips.map(tip => {
+        if (tip.id === tipId) {
+          const completedSteps = tip.completedSteps || [];
+          const newCompletedSteps = completedSteps.includes(stepIndex)
+            ? completedSteps.filter(i => i !== stepIndex)
+            : [...completedSteps, stepIndex];
+          return { ...tip, completedSteps: newCompletedSteps };
+        }
+        return tip;
+      });
+
+      storageService.saveRecommendations(updatedRecommendations);
+
+      return {
+        ...prev,
+        recommendations: updatedRecommendations,
+        savedTips: updatedSavedTips,
+        selectedTip: prev.selectedTip?.id === tipId
+          ? {
+              ...prev.selectedTip,
+              completedSteps: updatedRecommendations.find(t => t.id === tipId)?.completedSteps || []
+            }
+          : prev.selectedTip,
+      };
     });
   };
 
@@ -185,6 +274,9 @@ export const WellnessProvider: React.FC<{ children: ReactNode }> = ({ children }
     navigateTo,
     clearSession,
     regenerateRecommendations,
+    toggleDarkMode,
+    addProgress,
+    toggleStepCompletion,
   };
 
   return (
