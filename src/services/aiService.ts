@@ -59,7 +59,7 @@ export class AIService {
               }],
               generationConfig: {
                 temperature: 0.9,
-                maxOutputTokens:4096,
+                maxOutputTokens:8192,
                 topP: 0.95,
                 topK: 40
               }
@@ -197,7 +197,8 @@ Generate the JSON array now:`;
   async generateDetailedExplanation(tip: WellnessTip, profile: UserProfile): Promise<WellnessTip> {
   try {
     // Updated prompt to force compact JSON and short outputs per field
-    const prompt = `You are a fitness expert with all the knowledge that a fitness trainer and doctor have. Provide detailed information about this wellness tip in strict JSON only.
+    const prompt = `You are a health and fitness expert with complete knowledge of exercise, nutrition, and medical wellness, able to give safe, effective, personalized guidance.
+ Provide detailed information about this wellness tip in strict JSON only.
 
 TIP: ${tip.title}
 DESCRIPTION: ${tip.shortDescription}

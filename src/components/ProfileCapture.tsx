@@ -542,7 +542,7 @@ const ProfileCapture: React.FC = () => {
           </form>
         </motion.div>
 
-        {/* Feature Cards */}
+         {/* Feature Cards */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -564,6 +564,87 @@ const ProfileCapture: React.FC = () => {
               <p className="text-sm text-gray-600 dark:text-gray-400">{item.desc}</p>
             </motion.div>
           ))}
+        </motion.div>
+
+        {/* Stay Tuned Banner */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.5 }}
+          className="mt-8 relative overflow-hidden"
+        >
+          <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 via-blue-500/10 to-pink-500/10 rounded-2xl blur-xl"></div>
+          <div className="relative bg-white/60 dark:bg-gray-800/60 backdrop-blur-md rounded-2xl p-6 border border-purple-200/50 dark:border-purple-700/50 text-center">
+            <motion.div
+              animate={{ rotate: [0, 360] }}
+              transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+              className="inline-block text-2xl mb-2"
+            >
+              ✨
+            </motion.div>
+            <h3 className="text-lg font-bold bg-gradient-to-r from-purple-600 via-blue-600 to-pink-600 bg-clip-text text-transparent mb-1">
+              Stay Tuned for More Updates!
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Exciting new features and wellness tools coming soon
+            </p>
+          </div>
+        </motion.div>
+
+        {/* About Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6 }}
+          className="mt-8 bg-gradient-to-br from-white/90 to-purple-50/90 dark:from-gray-800/90 dark:to-purple-900/20 backdrop-blur-sm rounded-2xl shadow-lg p-8 border border-purple-100 dark:border-purple-900/30"
+        >
+          <div className="flex items-center justify-center mb-6">
+            <motion.div
+              whileHover={{ rotate: 360, scale: 1.1 }}
+              transition={{ duration: 0.5 }}
+              className="w-16 h-16 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center shadow-lg mr-4"
+            >
+              <span className="text-3xl">👨‍💻</span>
+            </motion.div>
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">About the Creator</h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Built with passion for your wellness</p>
+            </div>
+          </div>
+
+          <div className="space-y-4 text-center">
+            <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
+              <span className="font-semibold text-purple-600 dark:text-purple-400">HealthGuru</span> was created to make personalized wellness accessible to everyone. 
+              Using cutting-edge AI technology, we transform your unique health goals into actionable, evidence-based recommendations.
+            </p>
+            
+            <div className="grid md:grid-cols-3 gap-4 pt-4">
+              <div className="p-4 bg-white/50 dark:bg-gray-700/50 rounded-xl">
+                <div className="text-2xl mb-2">🤖</div>
+                <p className="text-xs font-semibold text-gray-800 dark:text-gray-200 mb-1">AI-Powered</p>
+                <p className="text-xs text-gray-600 dark:text-gray-400">Gemini AI Integration</p>
+              </div>
+              <div className="p-4 bg-white/50 dark:bg-gray-700/50 rounded-xl">
+                <div className="text-2xl mb-2">⚛️</div>
+                <p className="text-xs font-semibold text-gray-800 dark:text-gray-200 mb-1">Modern Stack</p>
+                <p className="text-xs text-gray-600 dark:text-gray-400">React + TypeScript</p>
+              </div>
+              <div className="p-4 bg-white/50 dark:bg-gray-700/50 rounded-xl">
+                <div className="text-2xl mb-2">💜</div>
+                <p className="text-xs font-semibold text-gray-800 dark:text-gray-200 mb-1">Open Source</p>
+                <p className="text-xs text-gray-600 dark:text-gray-400">Assignment</p>
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-purple-200 dark:border-purple-800">
+              <p className="text-xs text-gray-500 dark:text-gray-400 italic">
+                "The journey is yours alone. Go beyond the standard—your extraordinary results depend on it."
+              </p>
+              <p className="text-xs text-purple-600 dark:text-purple-400 font-semibold mt-2">
+                — Swetabh Salampuria, Founder
+              </p>
+            </div>
+          </div>
         </motion.div>
       </div>
     </div>
