@@ -31,7 +31,7 @@
   ##### Saved Tips: Personal wellness library with statistics
   ![Image4](assets/image4.png)
   ##### Progress Tracker: Streaks, achievements, and analytics
-  ![Image5](assets/image5.png)
+  ![Image5](assets/Image5.png)
 
 #### 3. Dark Mode
   ##### Seamless dark mode for comfortable night viewing
