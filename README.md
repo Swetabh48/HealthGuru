@@ -40,7 +40,7 @@
 ### 🎥 Video Demo
   ##### Screen Recording:
   ###### For Desktop: <a href="https://drive.google.com/file/d/1AurN3zWEnuYGiKTn_cw0wIDVG2RVzt27/view?usp=sharing" style="color: inherit; text-decoration: underline;">Watch Full Walkthrough</a>
-  ###### For Mobile(Samsung Galaxy S20+): <a href="https://drive.google.com/file/d/1WvnI3qLgP0BnE0LeFLJ-K2FMouB9CvSK/view?usp=sharing" style="color: inherit; text-decoration: underline;">Watch Full Walkthrough</a>
+  ###### For Mobile(e.g. Samsung Galaxy S20+): <a href="https://drive.google.com/file/d/1WvnI3qLgP0BnE0LeFLJ-K2FMouB9CvSK/view?usp=sharing" style="color: inherit; text-decoration: underline;">Watch Full Walkthrough</a>
   Key interactions shown:
   - Complete onboarding flow
   - AI recommendation generation
