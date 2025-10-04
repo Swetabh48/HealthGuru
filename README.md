@@ -11,7 +11,58 @@
 </div>
 
 ---
+## 📸 Demo & Screenshots
+### Screenshot Gallery
+#### 1. Profile Onboarding(4 steps)
+  ##### Step1:Optional name capture with welcoming UI
+  ![Image1](assets/image1.png)
+  ##### Step2:Age and gender selection with validation
+  ![Step2](assets/pp2.png)
+  ##### Step3:Visual goal selection (up to 3 goals)
+  ![Step3](assets/pp3.png)
+  ##### Step4: Detailed goal descriptions for better AI recommendations
+  ![Step4](assets/pp4.png)
 
+#### 2. Main Application Screens
+  ##### Recommendation Board: AI-generated wellness tips with filters
+  ![Image2](assets/image2.png)
+  ##### Tip Detail: Comprehensive information with step-by-step guidance and progress tracking
+  ![Image3](assets/image3.png)
+  ##### Saved Tips: Personal wellness library with statistics
+  ![Image4](assets/image4.png)
+  ##### Progress Tracker: Streaks, achievements, and analytics
+  ![Image5](assets/image5.png)
+
+#### 3. Dark Mode
+  ##### Seamless dark mode for comfortable night viewing
+  ![DarkMode](assets/Dark.png)
+
+### 🎥 Video Demo
+  ##### Screen Recording:
+  ###### For Desktop: <a href="https://drive.google.com/file/d/1AurN3zWEnuYGiKTn_cw0wIDVG2RVzt27/view?usp=sharing" style="color: inherit; text-decoration: underline;">Watch Full Walkthrough</a>
+  ###### For Mobile(Samsung Galaxy S20+): <a href="https://drive.google.com/file/d/1WvnI3qLgP0BnE0LeFLJ-K2FMouB9CvSK/view?usp=sharing" style="color: inherit; text-decoration: underline;">Watch Full Walkthrough</a>
+  Key interactions shown:
+  - Complete onboarding flow
+  - AI recommendation generation
+  - Tip interaction and saving
+  - Progress tracking
+  - Dark mode toggle
+  - Responsive design
+
+---
+## 🎯 Project Overview
+**HealthGuru**  is an intelligent wellness recommendation platform that generates personalized health, fitness, and lifestyle tips based on user profiles and goals. Built with React, TypeScript, and Google Gemini AI, it provides actionable wellness advice tailored to individual needs.
+#### Key Features:
+- 🤖 **AI-Powered Recommendations:** Generates 6 personalized wellness tips using Gemini 2.5 Flash
+- 👤 **User Profiling:** Multi-step onboarding capturing age, gender, wellness goals, and detailed goal descriptions
+- 💾 **Save & Track:** Save favorite tips and track progress with completion tracking
+- 📊 **Progress Dashboard:** Visual statistics, streaks, achievements, and category breakdowns
+- 🌙 **Dark Mode:** Full dark mode support with smooth transitions
+- 📱 **Responsive Design:** Optimized for mobile, tablet, and desktop
+- ✨ **Interactive UI:** Framer Motion animations and smooth transitions
+- 🔄 **Regenerate Tips:** Get fresh recommendations anytime
+
+---
 ## 📋 Table of Contents
 - [Project Setup & Demo](#-project-setup--demo)
 - [Problem Understanding](#-problem-understanding)
@@ -21,9 +72,7 @@
 - [Known Issues & Improvements](#-known-issues--improvements)
 - [Running on Mobile (iOS/Android)](#-running-on-mobile-iosandroid)
 - [Bonus Features](#-bonus-features)
-- [Testing](#-testing)
 - [Deployment](#-deployment)
-- [Learn More](#-learn-more)
 
 ---
 
@@ -93,12 +142,34 @@ In the project directory, you can run:
 
 ## 🎯 Problem Understanding
 
-### Core Challenge
-Create an intelligent wellness recommendation system that:
-- **Personalizes** health advice based on user demographics and goals
-- **Generates** actionable, evidence-based wellness tips using AI 
-- **Adapts** to individual user contexts with detailed goal descriptions
-- **Tracks** progress and maintains long-term user engagement
+### Requirements Addressed
+
+#### 1. Multi-Screen App Structure
+✅ Profile Capture (4-step wizard)
+✅ Recommendation Board (main dashboard)
+✅ Tip Detail View (expanded information)
+✅ Saved Tips Library
+✅ Progress Tracker (bonus)
+
+
+#### 2. AI Integration
+✅ Google Gemini 2.5 Flash API integration
+✅ Structured prompts for consistent JSON responses
+✅ Error handling with retry logic and exponential backoff
+✅ Rate limiting protection
+✅ Fallback tips for API failures
+
+#### 3. State Management
+✅ React Context API for global state
+✅ Local storage persistence
+✅ User profile, recommendations, saved tips, and progress tracking
+
+#### 4. User Experience
+✅ Clean, modern UI with Tailwind CSS
+✅ Smooth animations with Framer Motion
+✅ Form validation and error feedback
+✅ Loading states with custom spinner
+✅ Mobile-first responsive design
 
 ### Key Assumptions Made
 
@@ -112,7 +183,7 @@ Create an intelligent wellness recommendation system that:
 ![User Flow Diagram](assets/userflow.png)
 
 ### Target Audience
-- Health-conscious individuals (18-65 years)
+- Health-conscious individuals (16-95 years)
 - Fitness beginners seeking guidance
 - People with specific wellness goals
 - Users who prefer personalized, AI-driven recommendations
@@ -123,7 +194,7 @@ Create an intelligent wellness recommendation system that:
 
 ### Evolution of Prompt Engineering
 
-#### ❌ Initial Approach (v1.0) - Failed
+#### ❌ Initial Approach- Failed
 
 **Prompt:**
 ```
@@ -150,7 +221,7 @@ Generate 6 wellness tips for a {age} year old {gender} interested in {goals}
 
 ---
 
-#### ⚠️ Intermediate Approach (v1.5) - Partial Success
+#### ⚠️ Intermediate Approach - Partial Success
 
 **Improvements:**
 - Added user demographics (age, gender)
@@ -163,7 +234,7 @@ Generate 6 wellness tips for a {age} year old {gender} interested in {goals}
 
 ---
 
-#### ✅ Current Approach (v2.0) - Production Ready
+#### ✅ Current Approach - Production Ready
 
 ### 1. Recommendation Generation Prompt
 
@@ -562,24 +633,6 @@ User Action → Context Dispatch → Service Call → LocalStorage → State Upd
 - ❌ Data lost on browser clear (can be mitigated with export/import)
 - ❌ No cross-device sync (future: add cloud backup)
 
-### State Hydration on Load
-
-```typescript
-useEffect(() => {
-  // Load from LocalStorage on mount
-  const savedProfile = storageService.getUserProfile();
-  const savedTips = storageService.getSavedTips();
-  const recommendations = storageService.getRecommendations();
-  
-  setState(prev => ({
-    ...prev,
-    userProfile: savedProfile,
-    savedTips: savedTips,
-    recommendations: recommendations,
-    currentScreen: savedProfile ? 'board' : 'profile'
-  }));
-}, []);
-```
 
 ---
 
@@ -648,15 +701,17 @@ await new Promise(resolve => setTimeout(resolve, waitTime));
 ![Retry 2](assets/retry2.png)
 ---
 
-#### 4. **Mobile Responsiveness**
+#### 4. **Mobile Responsiveness**  
 **Severity:** Low  
-**Issue:** Minor layout issues on very small screens (<320px width)  
-**Impact:** Text overflow, cramped UI in tip details on all devices  
-**Mostly Affected Devices:** iPhone 5/SE (1st gen), small Android phones  
-**Future Fix:**
-- [ ] Add more breakpoints (xs: 320px)
-- [ ] Test on actual devices (currently browser DevTools only)
-- [ ] Implement font scaling based on viewport
+**Issue:** Layout inconsistencies on mobile screens (observed on Samsung Galaxy S20+). Text in the tip detail section occasionally overflows, and spacing appears cramped, reducing readability.  
+**Impact:** While the app is functional, the user experience on mobile devices is slightly degraded due to misaligned text and insufficient padding.  
+**Mostly Affected Devices:** Mid-to-small screen Android devices (e.g., Samsung Galaxy S20+, older small-screen phones like iPhone SE 1st gen).  
+**Future Fix:**  
+- [ ] Add finer breakpoints (e.g., `xs: 320px`, `sm: 360px`)  
+- [ ] Test on a range of real devices in addition to browser DevTools  
+- [ ] Adjust font scaling and padding dynamically based on viewport  
+- [ ] Ensure consistent line wrapping in tip detail sections  
+
 
 ---
 
@@ -673,7 +728,6 @@ await new Promise(resolve => setTimeout(resolve, waitTime));
 - [ ] Add ARIA labels to all buttons/cards
 - [ ] Implement Tab/Enter/Escape keyboard navigation
 - [ ] Add skip-to-content link
-- [ ] Test with NVDA/JAWS screen readers
 - [ ] Add focus indicators (visible keyboard focus)
 
 ---
@@ -863,56 +917,6 @@ storageService.importData(jsonString);
 
 ---
 
-## 🧪 Testing
-
-### Manual Testing Checklist
-
-#### Profile Creation
-- [ ] Create profile with all goal types
-- [ ] Test age validation (13-120)
-- [ ] Test goal description requirements (10+ chars)
-- [ ] Verify "Previous" button navigation
-- [ ] Test form submission with invalid data
-
-#### Recommendations
-- [ ] Generate tips for different age groups (18, 35, 60)
-- [ ] Test regenerate functionality
-- [ ] Verify tips match selected goals
-- [ ] Test difficulty filter
-- [ ] Check fallback tips when API fails
-
-#### Tip Interactions
-- [ ] Save/unsave tips
-- [ ] View tip details
-- [ ] Complete individual steps
-- [ ] Copy steps to clipboard
-- [ ] Share tips (if supported by browser)
-
-#### Progress Tracking
-- [ ] Complete tips and verify streak counter
-- [ ] Check progress statistics accuracy
-- [ ] Test achievement badge unlocking
-- [ ] Verify category breakdown chart
-
-#### Data Persistence
-- [ ] Close browser and reopen - data should persist
-- [ ] Export data and verify JSON structure
-- [ ] Import exported data
-- [ ] Clear browser data and verify fresh start
-
-#### Dark Mode
-- [ ] Toggle dark mode
-- [ ] Verify all screens respect theme
-- [ ] Check persistence after refresh
-
-#### Mobile Responsiveness
-- [ ] Test on mobile viewport (375px)
-- [ ] Test on tablet (768px)
-- [ ] Test on desktop (1440px)
-- [ ] Check landscape orientation
----
-```
-```
 ## 🚀 Deployment
 
 ### Option 1: Vercel (Recommended)
@@ -992,17 +996,6 @@ We welcome contributions! Here's how to get started:
 
 ---
 
-## 📝 License
-
-This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
-
-**What this means:**
-- ✅ Free to use for personal and commercial projects
-- ✅ Can modify and distribute
-- ✅ No warranty provided
-- ℹ️ Must include original copyright notice
-
----
 
 ## 🙏 Acknowledgments
 
@@ -1010,22 +1003,10 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 - **React** - UI framework by Meta
 - **TypeScript** - Type safety by Microsoft
 - **Tailwind CSS** - Utility-first CSS framework
-- **Framer Motion** - Animation library
-- **Google Gemini AI** - Recommendation generation
+- **Framer Motion** - Incredible animation library
+- **Google Gemini AI** - Powerful AI capabilities
 - **Lucide Icons** - Beautiful icon set
 - **Create React App** - Project bootstrap
-
-### Inspiration
-- Apple Health app - Clean, intuitive UI
-- Headspace - Calming color palette
-- Notion - Card-based layouts
-- Duolingo - Gamification elements
-
-### Special Thanks
-- Google AI Studio for free Gemini API access
-- React community for excellent documentation
-- Tailwind Labs for the amazing CSS framework
-- Framer for smooth animations
 
 ---
 
@@ -1045,7 +1026,7 @@ Please report bugs with:
 5. Browser/device information
 
 ### Feature Requests
-We'd love to hear your ideas! Open an issue with the `enhancement` label.
+I'd love to hear your ideas! Open an issue with the `enhancement` label.
 
 ---
 
